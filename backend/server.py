@@ -19,7 +19,7 @@ import bcrypt
 import requests
 import stripe
 from twilio.rest import Client as TwilioClient
-from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depends, UploadFile, File
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -48,6 +48,41 @@ _twilio_client = TwilioClient(TWILIO_SID, TWILIO_TOKEN) if (TWILIO_SID and TWILI
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("padrao-rd")
+
+# ---- Object storage (Emergent-managed) ----
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+STORAGE_APP = "padrao-rd"
+MIME_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+_storage_key = None
+
+def init_storage(force: bool = False):
+    global _storage_key
+    if _storage_key and not force:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str):
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
 app = FastAPI(title="Padrão RD API")
 api = APIRouter(prefix="/api")
@@ -994,6 +1029,40 @@ async def update_appointment_status(appointment_id: str, body: StatusBody, admin
     appt = await db.appointments.find_one({"id": appointment_id}, {"_id": 0})
     return await enrich_appointment(appt)
 
+@api.post("/admin/upload")
+async def admin_upload(file: UploadFile = File(...), admin: dict = Depends(require_admin)):
+    ext = (file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "bin").lower()
+    if ext not in MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Formato inválido. Use JPG, PNG, GIF ou WEBP.")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagem muito grande (máx 5MB).")
+    path = f"{STORAGE_APP}/uploads/{admin['user_id']}/{uuid.uuid4().hex}.{ext}"
+    ct = file.content_type or MIME_TYPES[ext]
+    try:
+        result = await asyncio.to_thread(put_object, path, data, ct)
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Falha ao enviar a imagem.")
+    stored = result.get("path", path)
+    await db.files.insert_one({
+        "id": new_id("file"), "storage_path": stored, "original_filename": file.filename,
+        "content_type": ct, "size": result.get("size", len(data)), "is_deleted": False, "created_at": now_utc(),
+    })
+    return {"url": f"{FRONTEND_URL.rstrip('/')}/api/files/{stored}", "path": stored}
+
+@api.get("/files/{path:path}")
+async def serve_file(path: str):
+    record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    try:
+        data, ct = await asyncio.to_thread(get_object, path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    return Response(content=data, media_type=record.get("content_type", ct),
+                    headers={"Cache-Control": "public, max-age=86400"})
+
 @api.get("/config")
 async def config():
     return {"stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY", "")}
@@ -1149,6 +1218,11 @@ async def startup():
             await db.barbers.update_one({"id": b["id"], "review_count": {"$exists": False}}, {"$set": {"review_count": 0}})
         await db.meta.update_one({"key": "menu_version"}, {"$set": {"value": "v2"}}, upsert=True)
     await asyncio.to_thread(_ensure_stripe_catalog_sync)
+    try:
+        await asyncio.to_thread(init_storage)
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed: {e}")
     logger.info("Padrão RD API ready")
 
 @app.on_event("shutdown")

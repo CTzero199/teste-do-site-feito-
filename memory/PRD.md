@@ -25,6 +25,9 @@ Integrar planos de mensalidade recorrente (imagem: Manutenção R$90, Fiel R$130
 ## Admin credentials
 - wandersoniury17@gmail.com / Akatsuki2022@ (owner/admin). Additional admins granted via the Usuários tab.
 
+## Implemented — Iteration 3 (2026-06)
+- Emergent object storage: admin image upload (POST /api/admin/upload, ≤5MB, JPG/PNG/GIF/WEBP) → stored at padrao-rd/uploads/{admin}/{uuid}, DB reference in `files`, served publicly via GET /api/files/{path}. BarberEditor now has an "Enviar foto" upload button (with preview) plus the URL field. Verified: init OK, upload returns public URL, serve returns 200 image/png.
+
 ## Backlog (P1/P2)
 - P1: Stripe subscription lifecycle webhooks (renew/cancel sync via customer.subscription.*).
 - P2: Split server.py into modules; track cancelled_at separately; email notifications (Resend); barber dashboards.

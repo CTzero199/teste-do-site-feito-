@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Scissors, Users, CalendarClock, DollarSign, Plus, Edit3, Trash2, Check, X, Clock, ShieldCheck, ShieldOff, Crown, Banknote, Crown as CrownIcon } from "lucide-react";
+import { Scissors, Users, CalendarClock, DollarSign, Plus, Edit3, Trash2, Check, X, Clock, ShieldCheck, ShieldOff, Crown, Banknote, Crown as CrownIcon, Image as ImageIcon } from "lucide-react";
 import Layout from "@/components/Layout";
 import api, { apiError } from "@/lib/api";
 import { formatCurrency, formatDateBR, WEEKDAYS } from "@/lib/format";
@@ -272,6 +272,7 @@ function ServiceEditor({ initial, onCancel, onSave }) {
 
 function BarberEditor({ initial, services, onCancel, onSave }) {
   const [f, setF] = useState({ ...blankBarber, ...initial });
+  const [uploading, setUploading] = useState(false);
   const [av, setAv] = useState({ weekday: 1, start_time: "09:00", end_time: "18:00" });
   const toggleService = (id) => setF((c) => ({ ...c, service_ids: c.service_ids.includes(id) ? c.service_ids.filter((x) => x !== id) : [...c.service_ids, id] }));
   const addAv = () => setF((c) => ({ ...c, availabilities: [...c.availabilities, { ...av, weekday: Number(av.weekday) }] }));
@@ -279,7 +280,26 @@ function BarberEditor({ initial, services, onCancel, onSave }) {
   return (
     <div className="mt-5 grid gap-3 border-y border-gold-soft py-5 sm:grid-cols-2" data-testid="barber-editor">
       <input value={f.name} placeholder="Nome" onChange={(e) => setF({ ...f, name: e.target.value })} className="field-dark" data-testid="barber-name" />
-      <input value={f.image_url} placeholder="URL da foto" onChange={(e) => setF({ ...f, image_url: e.target.value })} className="field-dark" data-testid="barber-image" />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          {f.image_url ? <img src={f.image_url} alt="" className="size-12 rounded-sm object-cover" /> : <span className="grid size-12 place-items-center rounded-sm border border-gold-soft text-muted-foreground"><ImageIcon className="size-5" /></span>}
+          <label className="btn-outline-gold cursor-pointer py-2 text-sm" data-testid="barber-upload-label">
+            {uploading ? "Enviando…" : "Enviar foto"}
+            <input type="file" accept="image/*" className="hidden" data-testid="barber-image-file" disabled={uploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]; if (!file) return;
+                setUploading(true);
+                try {
+                  const fd = new FormData(); fd.append("file", file);
+                  const { data } = await api.post("/admin/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+                  setF((c) => ({ ...c, image_url: data.url })); toast.success("Foto enviada.");
+                } catch (err) { toast.error(apiError(err.response?.data?.detail)); }
+                finally { setUploading(false); e.target.value = ""; }
+              }} />
+          </label>
+        </div>
+        <input value={f.image_url} placeholder="ou cole uma URL da foto" onChange={(e) => setF({ ...f, image_url: e.target.value })} className="field-dark" data-testid="barber-image" />
+      </div>
       <input type="number" value={f.rating} min={0} max={5} step="0.1" onChange={(e) => setF({ ...f, rating: Number(e.target.value) })} placeholder="Avaliação" className="field-dark" data-testid="barber-rating" />
       <select value={f.active ? "yes" : "no"} onChange={(e) => setF({ ...f, active: e.target.value === "yes" })} className="field-dark"><option value="yes">Ativo</option><option value="no">Pausado</option></select>
       <textarea value={f.bio} placeholder="Bio" onChange={(e) => setF({ ...f, bio: e.target.value })} className="field-dark sm:col-span-2" data-testid="barber-bio" />
