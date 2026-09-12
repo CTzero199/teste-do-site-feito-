@@ -26,6 +26,12 @@ Integrar planos de mensalidade recorrente (imagem: Manutenção R$90, Fiel R$130
 - wandersoniury17@gmail.com / Akatsuki2022@ (owner/admin). Additional admins granted via the Usuários tab.
 
 ## Backlog (P1/P2)
-- P1: Stripe subscription lifecycle webhooks (cancel/renew sync via customer.subscription.*).
-- P1: Client-facing "cancel subscription" action.
-- P2: Split server.py into modules; remove unused AppointmentEditBody; email notifications (Resend); barber-specific dashboards.
+- P1: Stripe subscription lifecycle webhooks (renew/cancel sync via customer.subscription.*).
+- P2: Split server.py into modules; track cancelled_at separately; email notifications (Resend); barber dashboards.
+
+## Implemented — Iteration 2 (2026-06)
+- Client self-cancel of subscription (/minha-conta → "Cancelar assinatura"; cancels Stripe sub if online).
+- Plan benefits usage: /subscriptions/me returns used-vs-quota per category; account shows progress bars ("X restantes"/Ilimitado).
+- Subscription renewal WhatsApp reminder cron (daily 12:00, ~3 days before renewal; graceful no-op until Twilio set). next_renewal_date set on activation.
+- Admin "Ganhos" tab: MRR + this-month cards and a 6-month table comparing agendamentos vs planos side by side (GET /api/admin/earnings).
+- Tested: 12/12 new backend + 16/16 prior pass; frontend flows verified.

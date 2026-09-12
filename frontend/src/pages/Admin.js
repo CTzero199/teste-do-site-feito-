@@ -21,6 +21,7 @@ export default function Admin() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState([]);
   const [subs, setSubs] = useState([]);
+  const [earnings, setEarnings] = useState(null);
   const [editService, setEditService] = useState(null);
   const [editBarber, setEditBarber] = useState(null);
 
@@ -32,7 +33,8 @@ export default function Admin() {
   const load = () => api.get("/admin/overview").then((r) => setData(r.data)).catch((e) => toast.error(apiError(e.response?.data?.detail)));
   const loadUsers = () => api.get("/admin/users").then((r) => setUsers(r.data)).catch(() => {});
   const loadSubs = () => api.get("/admin/subscriptions").then((r) => setSubs(r.data)).catch(() => {});
-  useEffect(() => { if (user?.role === "admin") { load(); loadUsers(); loadSubs(); } }, [user]);
+  const loadEarnings = () => api.get("/admin/earnings").then((r) => setEarnings(r.data)).catch(() => {});
+  useEffect(() => { if (user?.role === "admin") { load(); loadUsers(); loadSubs(); loadEarnings(); } }, [user]);
 
   const saveService = async (v) => {
     try { await api.post("/admin/services", v); toast.success("Serviço salvo."); setEditService(null); load(); }
@@ -54,7 +56,7 @@ export default function Admin() {
   if (!data) return <Layout><div className="grid min-h-[60vh] place-items-center text-muted-foreground">Carregando dados…</div></Layout>;
 
   const stats = data.stats;
-  const tabs = [["agenda", "Agenda"], ["assinaturas", "Assinaturas"], ["usuarios", "Usuários"], ["servicos", "Serviços"], ["barbeiros", "Barbeiros"]];
+  const tabs = [["agenda", "Agenda"], ["ganhos", "Ganhos"], ["assinaturas", "Assinaturas"], ["usuarios", "Usuários"], ["servicos", "Serviços"], ["barbeiros", "Barbeiros"]];
 
   return (
     <Layout>
@@ -111,6 +113,34 @@ export default function Admin() {
                 </tbody>
               </table>
             ) : <p className="text-sm text-muted-foreground">Nenhum agendamento ainda.</p>}
+          </div>
+        )}
+
+        {tab === "ganhos" && (
+          <div className="mt-8 space-y-6" data-testid="admin-earnings">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="card-dark p-5"><span className="font-cond text-xs uppercase tracking-widest text-muted-foreground">Recorrente mensal (planos ativos)</span><strong className="mt-2 block font-display text-3xl text-gold">{formatCurrency(earnings?.mrr_cents || 0)}</strong></div>
+              <div className="card-dark p-5"><span className="font-cond text-xs uppercase tracking-widest text-muted-foreground">Agendamentos este mês</span><strong className="mt-2 block font-display text-3xl text-foreground">{formatCurrency(earnings?.current?.appointments_cents || 0)}</strong></div>
+              <div className="card-dark p-5"><span className="font-cond text-xs uppercase tracking-widest text-muted-foreground">Total este mês</span><strong className="mt-2 block font-display text-3xl text-emerald-400">{formatCurrency(earnings?.current?.total_cents || 0)}</strong></div>
+            </div>
+            <div className="card-dark overflow-x-auto p-5 sm:p-6">
+              <h2 className="font-cond text-xl uppercase tracking-wide text-foreground">Resumo mensal</h2>
+              <table className="mt-4 w-full min-w-[560px] text-left text-sm">
+                <thead className="border-b border-gold-soft font-cond text-xs uppercase tracking-widest text-muted-foreground">
+                  <tr><th className="pb-3">Mês</th><th className="pb-3">Agendamentos</th><th className="pb-3">Planos</th><th className="pb-3">Total</th></tr>
+                </thead>
+                <tbody>
+                  {(earnings?.months || []).map((m) => (
+                    <tr key={m.month} className="border-b border-white/5" data-testid={`earnings-row-${m.month}`}>
+                      <td className="py-3 font-medium text-foreground">{m.label}</td>
+                      <td className="py-3">{formatCurrency(m.appointments_cents)}</td>
+                      <td className="py-3 text-gold">{formatCurrency(m.subscriptions_cents)}</td>
+                      <td className="py-3 font-medium text-emerald-400">{formatCurrency(m.total_cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

@@ -58,18 +58,23 @@ WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábad
 PLANS = [
     {"id": "manutencao", "name": "Plano Manutenção", "price_cents": 9000, "lookup_key": "plano_manutencao",
      "accent": "orange", "highlight": False,
-     "features": ["4 cortes (qualquer tipo normal)", "Sobrancelha grátis"]},
+     "features": ["4 cortes (qualquer tipo normal)", "Sobrancelha grátis"],
+     "quotas": {"Cortes": 4}},
     {"id": "fiel", "name": "Plano Fiel", "price_cents": 13000, "lookup_key": "plano_fiel",
      "accent": "silver", "highlight": False,
-     "features": ["4 cortes (1 por semana)", "2 barbas", "Sobrancelha grátis"]},
+     "features": ["4 cortes (1 por semana)", "2 barbas", "Sobrancelha grátis"],
+     "quotas": {"Cortes": 4, "Barba": 2}},
     {"id": "completo", "name": "Plano Completo", "price_cents": 18000, "lookup_key": "plano_completo",
      "accent": "gold", "highlight": True,
-     "features": ["4 cortes (pode incluir navalhado)", "4 barbas", "2 pigmentação", "Sobrancelha grátis", "1 bebida por atendimento"]},
+     "features": ["4 cortes (pode incluir navalhado)", "4 barbas", "2 pigmentação", "Sobrancelha grátis", "1 bebida por atendimento"],
+     "quotas": {"Cortes": 4, "Barba": 4, "Pintura": 2}},
     {"id": "elite", "name": "Plano Elite", "price_cents": 25000, "lookup_key": "plano_elite",
      "accent": "diamond", "highlight": False,
-     "features": ["Corte ilimitado (uso consciente)", "4 barbas", "2 pigmentações", "Prioridade no atendimento", "4 limpeza de pele", "5 bebidas"]},
+     "features": ["Corte ilimitado (uso consciente)", "4 barbas", "2 pigmentações", "Prioridade no atendimento", "4 limpeza de pele", "5 bebidas"],
+     "quotas": {"Cortes": None, "Barba": 4, "Pintura": 2}},
 ]
 PLAN_BY_ID = {p["id"]: p for p in PLANS}
+QUOTA_LABELS = {"Cortes": "Cortes", "Barba": "Barbas", "Pintura": "Pigmentações"}
 
 # ----------------------------------------------------------------------------
 # Helpers
@@ -95,6 +100,26 @@ def iso(dt) -> Optional[str]:
     if isinstance(dt, datetime):
         return dt.isoformat()
     return dt
+
+def add_months(dt: datetime, n: int) -> datetime:
+    m = dt.month - 1 + n
+    y = dt.year + m // 12
+    m = m % 12 + 1
+    leap = (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))
+    days_in = [31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]
+    return dt.replace(year=y, month=m, day=min(dt.day, days_in))
+
+def _as_dt(v) -> Optional[datetime]:
+    if v is None:
+        return None
+    if isinstance(v, str):
+        try:
+            v = datetime.fromisoformat(v)
+        except ValueError:
+            return None
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v
 
 def normalize_phone_br(raw: str) -> str:
     if not raw:
@@ -635,7 +660,8 @@ async def _mark_subscription_paid(session_id: str, stripe_subscription_id=None):
         {"session_id": session_id, "status": {"$ne": "active"}},
         {"$set": {"status": "active", "payment_status": "paid",
                   "stripe_subscription_id": stripe_subscription_id,
-                  "activated_at": now_utc(), "updated_at": now_utc()}},
+                  "activated_at": now_utc(), "next_renewal_date": add_months(now_utc(), 1),
+                  "updated_at": now_utc()}},
     )
     await db.payment_transactions.update_one(
         {"session_id": session_id}, {"$set": {"status": "completed", "payment_status": "paid", "updated_at": now_utc()}},
@@ -738,11 +764,53 @@ async def create_subscription(body: SubscribeBody, user: dict = Depends(get_curr
 async def my_subscriptions(user: dict = Depends(get_current_user)):
     items = await db.subscriptions.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
     items.sort(key=lambda s: s.get("created_at", now_utc()), reverse=True)
+    svc = await db.services.find({}, {"_id": 0, "id": 1, "category": 1}).to_list(500)
+    cat_by_id = {s["id"]: s.get("category", "Cortes") for s in svc}
+    appts = await db.appointments.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(2000)
+    out = []
     for s in items:
-        s["created_at"] = iso(s.get("created_at"))
-        s["updated_at"] = iso(s.get("updated_at"))
-        s["activated_at"] = iso(s.get("activated_at"))
-    return items
+        usage = []
+        act = _as_dt(s.get("activated_at"))
+        if s.get("status") == "active" and act:
+            start = act
+            while add_months(start, 1) <= now_utc():
+                start = add_months(start, 1)
+            quotas = PLAN_BY_ID.get(s["plan_id"], {}).get("quotas", {})
+            counts = {k: 0 for k in quotas}
+            for a in appts:
+                ca = _as_dt(a.get("created_at"))
+                paid = a.get("payment_status") == "paid" or a.get("status") in ("confirmed", "completed")
+                if ca and ca >= start and paid:
+                    ids = a.get("service_ids") or ([a.get("service_id")] if a.get("service_id") else [])
+                    for sid in ids:
+                        cat = cat_by_id.get(sid)
+                        if cat in counts:
+                            counts[cat] += 1
+            for k, lim in quotas.items():
+                usage.append({"category": k, "label": QUOTA_LABELS.get(k, k), "used": counts.get(k, 0), "limit": lim})
+        d = dict(s)
+        d["created_at"] = iso(s.get("created_at"))
+        d["updated_at"] = iso(s.get("updated_at"))
+        d["activated_at"] = iso(s.get("activated_at"))
+        d["next_renewal_date"] = iso(s.get("next_renewal_date"))
+        d["usage"] = usage
+        out.append(d)
+    return out
+
+@api.post("/subscriptions/{sub_id}/cancel")
+async def cancel_my_subscription(sub_id: str, user: dict = Depends(get_current_user)):
+    sub = await db.subscriptions.find_one({"id": sub_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail="Assinatura não encontrada")
+    if sub.get("status") == "cancelled":
+        return {"ok": True}
+    if sub.get("stripe_subscription_id"):
+        try:
+            await asyncio.to_thread(stripe.Subscription.cancel, sub["stripe_subscription_id"])
+        except Exception as e:
+            logger.error(f"Stripe subscription cancel failed: {e}")
+    await db.subscriptions.update_one({"id": sub_id}, {"$set": {"status": "cancelled", "updated_at": now_utc()}})
+    return {"ok": True, "message": "Assinatura cancelada."}
 
 # ----------------------------------------------------------------------------
 # Cron reminders
@@ -775,6 +843,36 @@ async def cron_reminders(request: Request):
     if not WEBHOOK_CRON_SECRET or not hmac.compare_digest(token, WEBHOOK_CRON_SECRET):
         raise HTTPException(status_code=401, detail="Unauthorized")
     asyncio.create_task(_run_reminders())
+    return {"status": "accepted"}
+
+async def _run_subscription_reminders():
+    now = now_utc()
+    soon = now + timedelta(days=3)
+    subs = await db.subscriptions.find(
+        {"status": "active", "next_renewal_date": {"$gte": now, "$lte": soon}}, {"_id": 0}
+    ).to_list(2000)
+    for s in subs:
+        renew = _as_dt(s.get("next_renewal_date"))
+        renew_key = iso(s.get("next_renewal_date"))
+        if s.get("renewal_reminder_for") == renew_key:
+            continue
+        u = await db.users.find_one({"user_id": s["user_id"]}, {"_id": 0})
+        phone = (u or {}).get("phone", "")
+        if phone:
+            when = renew.astimezone(SP_TZ).strftime("%d/%m") if renew else "em breve"
+            valor = f"R$ {s.get('price_cents', 0) / 100:.2f}".replace(".", ",")
+            body = (f"💈 *Padrão RD* — Sua mensalidade *{s.get('plan_name', '')}* renova em {when}.\n"
+                    f"Valor: {valor}. Qualquer dúvida, fale com a gente! 🪒")
+            await send_whatsapp_async(phone, body)
+        await db.subscriptions.update_one({"id": s["id"]}, {"$set": {"renewal_reminder_for": renew_key}})
+
+@api.post("/cron/subscription-reminders", status_code=202)
+async def cron_subscription_reminders(request: Request):
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    if not WEBHOOK_CRON_SECRET or not hmac.compare_digest(token, WEBHOOK_CRON_SECRET):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    asyncio.create_task(_run_subscription_reminders())
     return {"status": "accepted"}
 
 # ----------------------------------------------------------------------------
@@ -834,7 +932,7 @@ async def admin_confirm_subscription(sub_id: str, admin: dict = Depends(require_
     sub = await db.subscriptions.find_one({"id": sub_id}, {"_id": 0})
     if not sub:
         raise HTTPException(status_code=404, detail="Assinatura não encontrada")
-    await db.subscriptions.update_one({"id": sub_id}, {"$set": {"status": "active", "payment_status": "paid", "activated_at": now_utc(), "updated_at": now_utc()}})
+    await db.subscriptions.update_one({"id": sub_id}, {"$set": {"status": "active", "payment_status": "paid", "activated_at": now_utc(), "next_renewal_date": add_months(now_utc(), 1), "updated_at": now_utc()}})
     return {"ok": True}
 
 @api.post("/admin/subscriptions/{sub_id}/cancel")
@@ -899,6 +997,44 @@ async def update_appointment_status(appointment_id: str, body: StatusBody, admin
 @api.get("/config")
 async def config():
     return {"stripe_publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY", "")}
+
+@api.get("/admin/earnings")
+async def admin_earnings(admin: dict = Depends(require_admin)):
+    now = now_utc()
+    cur = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    months = list(reversed([add_months(cur, -i) for i in range(6)]))
+    appts = await db.appointments.find({"payment_status": "paid"}, {"_id": 0}).to_list(5000)
+    subs = await db.subscriptions.find({}, {"_id": 0}).to_list(5000)
+    rows = []
+    for mstart in months:
+        mend = add_months(mstart, 1)
+        ms, me = mstart.replace(tzinfo=None), mend.replace(tzinfo=None)
+        appt_cents = 0
+        for a in appts:
+            try:
+                d = datetime.strptime(a["date"], "%Y-%m-%d")
+            except (ValueError, KeyError):
+                continue
+            if ms <= d < me:
+                appt_cents += a.get("total_cents") or 0
+        sub_cents = 0
+        for s in subs:
+            act = _as_dt(s.get("activated_at"))
+            if not act:
+                continue
+            act = act.replace(tzinfo=None)
+            if act < me:
+                if s.get("status") == "cancelled":
+                    upd = _as_dt(s.get("updated_at"))
+                    if upd and upd.replace(tzinfo=None) < ms:
+                        continue
+                sub_cents += s.get("price_cents", 0)
+        rows.append({"month": mstart.strftime("%Y-%m"), "label": mstart.strftime("%m/%Y"),
+                     "appointments_cents": appt_cents, "subscriptions_cents": sub_cents,
+                     "total_cents": appt_cents + sub_cents})
+    mrr = sum(s.get("price_cents", 0) for s in subs if s.get("status") == "active")
+    return {"months": rows, "mrr_cents": mrr,
+            "current": rows[-1] if rows else {"appointments_cents": 0, "subscriptions_cents": 0, "total_cents": 0}}
 
 # ----------------------------------------------------------------------------
 # Startup: indexes, admin seeding, sample data, stripe catalog

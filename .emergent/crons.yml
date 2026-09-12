@@ -4,5 +4,10 @@ crons:
     cron: "*/15 * * * *"
     endpoint: "{{BASE_URL}}/api/cron/reminders"
     method: POST
-    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true
+  - name: subscription-renewal-reminders
+    description: "Avisa no WhatsApp ~3 dias antes da renovação mensal de cada assinatura ativa"
+    cron: "0 12 * * *"
+    endpoint: "{{BASE_URL}}/api/cron/subscription-reminders"
+    method: POST
     enabled: true

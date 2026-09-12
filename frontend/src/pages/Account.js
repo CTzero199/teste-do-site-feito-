@@ -29,7 +29,12 @@ export default function Account() {
   }, [user, navigate]);
 
   const load = () => api.get("/appointments/me").then((r) => setAppointments(r.data)).catch(() => {}).finally(() => setLoading(false));
-  useEffect(() => { if (user && user.role) { load(); api.get("/subscriptions/me").then((r) => setSubs(r.data)).catch(() => {}); } }, [user]);
+  const loadSubs = () => api.get("/subscriptions/me").then((r) => setSubs(r.data)).catch(() => {});
+  const cancelSub = async (id) => {
+    try { await api.post(`/subscriptions/${id}/cancel`); toast.success("Assinatura cancelada."); loadSubs(); }
+    catch (err) { toast.error(apiError(err.response?.data?.detail)); }
+  };
+  useEffect(() => { if (user && user.role) { load(); loadSubs(); } }, [user]);
 
   const save = async () => {
     try { await saveProfile(form); toast.success("Perfil atualizado."); }
@@ -77,15 +82,43 @@ export default function Account() {
                 <h2 className="mt-2 font-display text-4xl text-foreground">Seus planos</h2>
                 <div className="mt-4 space-y-3">
                   {subs.map((s) => (
-                    <div key={s.id} className="card-dark flex items-center justify-between gap-4 p-5" data-testid={`sub-${s.id}`}>
-                      <div className="flex items-center gap-4">
-                        <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-gold/15 text-gold"><Crown className="size-5" /></span>
-                        <div>
-                          <p className="font-cond uppercase tracking-wide text-foreground">{s.plan_name}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(s.price_cents)}/mês · {s.method === "cash" ? "Dinheiro" : "Cartão"}</p>
+                    <div key={s.id} className="card-dark p-5" data-testid={`sub-${s.id}`}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          <span className="grid size-11 shrink-0 place-items-center rounded-sm bg-gold/15 text-gold"><Crown className="size-5" /></span>
+                          <div>
+                            <p className="font-cond uppercase tracking-wide text-foreground">{s.plan_name}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(s.price_cents)}/mês · {s.method === "cash" ? "Dinheiro" : "Cartão"}{s.status === "active" && s.next_renewal_date ? ` · renova ${new Date(s.next_renewal_date).toLocaleDateString("pt-BR")}` : ""}</p>
+                          </div>
                         </div>
+                        <span className={`inline-flex px-2 py-1 font-cond text-xs uppercase tracking-wide ${subStatusClass[s.status] || ""}`}>{subStatusLabel[s.status] || s.status}</span>
                       </div>
-                      <span className={`inline-flex px-2 py-1 font-cond text-xs uppercase tracking-wide ${subStatusClass[s.status] || ""}`}>{subStatusLabel[s.status] || s.status}</span>
+                      {s.usage && s.usage.length > 0 && (
+                        <div className="mt-4 grid gap-3 border-t border-gold-soft pt-4 sm:grid-cols-3" data-testid={`sub-usage-${s.id}`}>
+                          {s.usage.map((u) => {
+                            const unlimited = u.limit === null || u.limit === undefined;
+                            const remaining = unlimited ? null : Math.max(0, u.limit - u.used);
+                            const pct = unlimited ? 100 : Math.min(100, (u.used / (u.limit || 1)) * 100);
+                            return (
+                              <div key={u.category}>
+                                <div className="flex items-baseline justify-between">
+                                  <span className="font-cond text-xs uppercase tracking-widest text-muted-foreground">{u.label}</span>
+                                  <span className="font-cond text-xs text-gold">{unlimited ? "Ilimitado" : `${remaining} restantes`}</span>
+                                </div>
+                                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                  <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="mt-1 block text-[0.65rem] text-muted-foreground">{unlimited ? `${u.used} usados` : `${u.used} de ${u.limit} usados`}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {["active", "pending", "pending_cash"].includes(s.status) && (
+                        <div className="mt-4 flex justify-end">
+                          <button onClick={() => cancelSub(s.id)} className="btn-outline-gold py-2 text-sm" data-testid={`cancel-sub-${s.id}`}><X className="size-4" /> Cancelar assinatura</button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

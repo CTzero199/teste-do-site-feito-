@@ -1,0 +1,28 @@
+{
+  "summary": "Padrão RD follow-up review request tested end-to-end. Added pytest suite test_review_request_v2.py (12 tests, all PASSED) covering: (a) GET /api/subscriptions/me includes usage[] with correct quotas for Manutenção/Fiel/Completo/Elite (Elite Cortes limit=null=unlimited) and next_renewal_date; (b) confirming a paid appointment with a 'Cortes' service increments used to 1 on the active sub; (c) client POST /api/subscriptions/{id}/cancel flips status to 'cancelled', another user gets 404, unauthenticated gets 401; (d) GET /api/admin/earnings returns 6 months + mrr_cents + current with total==appointments+subscriptions, 401 unauthenticated; (e) POST /api/cron/subscription-reminders returns 401 without / with wrong Bearer and 202 with correct WEBHOOK_CRON_SECRET; (f) activation (cash confirm) sets next_renewal_date ~30d after activated_at. Frontend Playwright: admin login -> Ganhos tab (tab-ganhos) shows 3 summary cards (MRR R$1.190,00, agendamentos R$50,00, total R$1.330,00) plus 6 earnings-row-YYYY-MM rows with Mês/Agendamentos/Planos/Total columns. Client login -> /minha-conta renders sub-usage-{id} block with 'Cortes/Barbas/Pigmentações' and 'X restantes' + '0 de N usados' text; cancel-sub-{id} button POSTs and card status flips to 'CANCELADO' with toast 'Assinatura cancelada.' All prior iteration_1 tests (16) still relevant.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_review_request_v2.py",
+    "/app/backend/tests/test_review_request.py",
+    "/app/test_reports/pytest/review_request_v2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~1165 lines (grew from 1029). Splitting into modules (auth, admin, payments, subscriptions, booking, cron) is increasingly needed.",
+    "_run_subscription_reminders sets renewal_reminder_for even when WhatsApp is not sent (no phone / Twilio unset). That is fine for idempotency but means once Twilio is configured, existing subs whose reminder_for was already stamped will NOT receive a message for that renewal date. Consider only stamping when a message was actually attempted, or storing separate 'reminder_attempted_for' vs 'reminder_sent_for'.",
+    "admin_earnings uses appointment.total_cents (may be None) — safe due to `or 0`, but ensure new appointment writes always populate total_cents so historical revenue stays consistent.",
+    "Cancelled subscriptions still contribute to sub_cents in that month if they were active any time in the month (via updated_at cutoff). That is a reasonable convention, but consider tracking cancelled_at explicitly instead of reusing updated_at (which changes on any mutation).",
+    "usage count only counts appointments whose created_at >= period start; if backfill/imports happen, historical usage may be miscounted. Consider basing period on appointment.date instead."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_review_request_v2.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 new; 16/16 prior)", "frontend": "100% of tested flows (Ganhos tab, usage bars, client cancel)"},
+  "test_credentials": "Admin: wandersoniury17@gmail.com / Akatsuki2022@. WEBHOOK_CRON_SECRET pulled from /app/backend/.env.",
+  "seed_data_creation": "Several TEST_ prefixed users each with one 'completo'/'fiel'/'elite'/'manutencao' subscription (some cancelled) were created via /api/auth/register + /api/subscriptions + /api/admin/subscriptions/{id}/confirm. One TEST_ paid cash appointment (svc_social) exists to validate usage increment. All isolated by TEST_ prefix.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two backend test files exist for review-request scope: test_review_request.py (16 tests, iter1) and test_review_request_v2.py (12 tests, iter2). Both are independent and pass in parallel. Old test_reports/pytest/*.xml holds JUnit output. All new endpoints (/subscriptions/me usage, /subscriptions/{id}/cancel client, /admin/earnings, /cron/subscription-reminders) verified. WhatsApp is intentionally no-op due to empty TWILIO_* in .env.",
+  "rca of the issue": "N/A — no bugs found."
+}
