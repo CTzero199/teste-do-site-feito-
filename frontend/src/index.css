@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Oswald:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 0 0% 2%;
+        --foreground: 0 0% 97%;
+        --card: 0 0% 7%;
+        --card-foreground: 0 0% 97%;
+        --popover: 0 0% 7%;
+        --popover-foreground: 0 0% 97%;
+        --primary: 46 65% 52%;
+        --primary-foreground: 0 0% 4%;
+        --secondary: 0 0% 12%;
+        --secondary-foreground: 0 0% 97%;
+        --muted: 0 0% 12%;
+        --muted-foreground: 0 0% 63%;
+        --accent: 0 0% 10%;
+        --accent-foreground: 46 65% 52%;
+        --destructive: 0 72% 45%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 46 40% 30%;
+        --input: 0 0% 18%;
+        --ring: 46 65% 52%;
+        --radius: 0.125rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    html { scroll-behavior: smooth; }
+    body {
+        @apply bg-ink text-foreground;
+        font-family: 'Manrope', sans-serif;
+        margin: 0;
+    }
+    ::selection { background: #D4AF37; color: #050505; }
+    h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; }
+}
+
+@layer components {
+    .paper-bg {
+        background-image: url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwxfHxkYXJrJTIwcGFwZXIlMjB0ZXh0dXJlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODg2NDA5OTV8MA&ixlib=rb-4.1.0&q=85');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .eyebrow {
+        font-family: 'Oswald', sans-serif;
+        color: #D4AF37;
+        font-size: 0.72rem;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+    }
+    .font-cond { font-family: 'Oswald', sans-serif; }
+    .btn-gold {
+        @apply inline-flex items-center justify-center gap-2 bg-gold text-ink font-cond font-semibold uppercase tracking-widest px-6 py-3 rounded-sm transition-colors;
+    }
+    .btn-gold:hover { background-color: #AA8222; }
+    .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline-gold {
+        @apply inline-flex items-center justify-center gap-2 border border-gold text-gold font-cond font-medium uppercase tracking-widest px-6 py-3 rounded-sm transition-colors;
+    }
+    .btn-outline-gold:hover { background-color: #D4AF37; color: #050505; }
+    .field-dark {
+        @apply w-full rounded-sm border border-gold-soft bg-ink-surface px-4 py-3 text-foreground outline-none transition-colors;
+    }
+    .field-dark:focus { border-color: #D4AF37; }
+    .gold-line { background: linear-gradient(90deg, transparent, #D4AF37, transparent); }
+    .card-dark { @apply border border-gold-soft bg-ink-surface; }
+    .slot-chip {
+        @apply inline-flex items-center justify-center gap-1.5 border border-gold-soft bg-transparent text-muted-foreground font-cond px-4 py-2.5 rounded-sm transition-colors;
+    }
+    .slot-chip:hover { border-color: #D4AF37; color: #D4AF37; }
+    .slot-chip--active { background-color: #D4AF37; color: #050505; border-color: #D4AF37; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }

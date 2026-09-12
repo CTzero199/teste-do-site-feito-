@@ -1,0 +1,124 @@
+{
+  "project_name": "Padrão RD",
+  "theme_strategy": "dark_only_with_texture",
+  "typography": {
+    "fonts_to_import": [
+      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Oswald:wght@300;400;500;600&family=Manrope:wght@300;400;500;600&display=swap"
+    ],
+    "headings": {
+      "family": "'Cormorant Garamond', serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Main page titles, hero text, section headers. Gives the heraldic, classic luxury feel requested by the crest logo."
+    },
+    "subheadings": {
+      "family": "'Oswald', sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Overlines, labels, button text, and small accent text. Provides the bold, condensed, masculine aesthetic."
+    },
+    "body": {
+      "family": "'Manrope', sans-serif",
+      "weights": ["300", "400", "500"],
+      "usage": "Paragraphs, descriptions, form inputs. Ensures clean readability in data-heavy areas like the admin dashboard."
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#050505",
+      "surface": "#121212",
+      "surface_elevated": "#1A1A1A"
+    },
+    "primary": {
+      "default": "#D4AF37",
+      "hover": "#AA8222",
+      "foreground": "#050505"
+    },
+    "secondary": {
+      "default": "#E5E4E2",
+      "foreground": "#050505"
+    },
+    "accent": {
+      "default": "#1A1A1A",
+      "foreground": "#D4AF37"
+    },
+    "border": {
+      "default": "rgba(212, 175, 55, 0.2)",
+      "strong": "rgba(212, 175, 55, 0.5)"
+    },
+    "text": {
+      "primary": "#F8F8F8",
+      "secondary": "#A0A0A0",
+      "muted": "#666666"
+    }
+  },
+  "visual_enhancers": {
+    "background_texture": "The entire app must have a subtle dark textured paper background to match the 'Padrão RD' identity. Add an absolute/fixed inset div with `bg-[url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwxfHxkYXJrJTIwcGFwZXIlMjB0ZXh0dXJlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODg2NDA5OTV8MA&ixlib=rb-4.1.0&q=85')] bg-cover bg-center opacity-10 mix-blend-overlay pointer-events-none z-0` over a solid `#050505` background.",
+    "borders": "Use sharp corners (`rounded-none` or `rounded-sm`) to maintain the masculine, structured look. Borders should be 1px solid using the `border.default` color (faint gold).",
+    "shadows": "Avoid soft, diffuse shadows. Use sharp, offset drop shadows for a premium layered feel, or zero shadows relying on border contrast.",
+    "gradients": "Do not use vibrant gradients. If gradients are needed for overlays, use deep black to transparent (`bg-gradient-to-t from-[#050505] to-transparent`)."
+  },
+  "layouts": {
+    "hero_section": "Dark, moody interior background image (heavily overlaid with black/60 so it's barely visible). Massive 'Cormorant Garamond' headline centered or left-aligned. Minimalistic.",
+    "barber_profiles": "Tall vertical cards. Top 60% is a greyscale or high-contrast photo of the barber. Bottom 40% has a solid dark background with the barber's name in Gold Serif, specialties in Silver Condensed Sans, and availability. Use 1px gold borders.",
+    "booking_flow": "Step-by-step wizard. Stepper component should use gold lines connecting numbers. Steps: Service -> Barber -> Date -> Time Slot -> Payment (Stripe). Keep spacing generous (`gap-8` to `gap-12`).",
+    "admin_dashboard": "High-density grid layout for managing services, barbers, and appointments. Sharp edges, dark surfaces (`#121212`), high contrast text. Use Shadcn tables with gold active states."
+  },
+  "components": {
+    "button": "Primary: Solid Gold (`bg-[#D4AF37]`) with Black text (`text-[#050505]`), sharp corners (`rounded-sm`), uppercase condensed font (`font-oswald tracking-widest`). Hover: Darker gold (`hover:bg-[#AA8222]`). Secondary: Outline with Gold border and text, transparent background.",
+    "time_slot_chip": "Rectangular buttons for time selection. Default: `border border-[#D4AF37]/30 text-[#A0A0A0] bg-transparent`. Hover: `border-[#D4AF37] text-[#D4AF37]`. Selected: `bg-[#D4AF37] text-black border-[#D4AF37]`. Disabled: `opacity-50 line-through pointer-events-none`.",
+    "inputs": "Forms (login, profile edit) should use dark inputs with a bottom border only (material style) or fully outlined with `border-[#D4AF37]/30`. Background `#121212`. Focus state should highlight the border to solid Gold (`#D4AF37`)."
+  },
+  "image_urls": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBiYXJiZXJzaG9wJTIwZGFyayUyMGludGVyaW9yfGVufDB8fHx8MTc4ODY0MDk4OXww&ixlib=rb-4.1.0&q=85",
+      "description": "Dark luxury barbershop interior for hero background",
+      "category": "Hero"
+    },
+    "barber_1": {
+      "url": "https://images.pexels.com/photos/8552627/pexels-photo-8552627.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Confident barber in apron showcasing tattoos",
+      "category": "Team"
+    },
+    "barber_2": {
+      "url": "https://images.unsplash.com/photo-1582771498000-8ad44e6c84db?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBiYXJiZXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODg2NDA5ODl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Professional barber cutting hair",
+      "category": "Team"
+    },
+    "service_shave": {
+      "url": "https://images.unsplash.com/photo-1733995471058-3d6ff2013de3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxzdHJhaWdodCUyMHJhem9yJTIwc2hhdmUlMjBob3QlMjB0b3dlbHxlbnwwfHx8fDE3ODg2NDA5ODl8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Straight razor hot towel shave",
+      "category": "Services"
+    },
+    "texture_paper": {
+      "url": "https://images.unsplash.com/photo-1578662996442-48f60103fc96?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwxfHxkYXJrJTIwcGFwZXIlMjB0ZXh0dXJlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODg2NDA5OTV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Dark paper texture for background overlay",
+      "category": "Background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "You are building a Luxury Barbershop Booking platform (SaaS) called Padrão RD. Do NOT use the default Shadcn Inter font or light mode.",
+    "Force Dark Mode globally. Update tailwind.config.js to define the custom fonts (Cormorant Garamond, Oswald, Manrope) and custom colors (Deep Black, Metallic Gold).",
+    "Integrate a global background layout wrapper that applies the dark paper texture image (`image_urls.texture_paper`) with `opacity-10 mix-blend-overlay` over a `#050505` base background.",
+    "Implement the 3 admin profiles (Admin dashboard) as a separate route (`/admin`) for managing barbers, services, and viewing appointments.",
+    "Implement the Client flow: Landing Page -> Login/Signup -> Booking Wizard -> Client Dashboard (view/cancel appointments).",
+    "Booking flow must be sequential: 1. Service -> 2. Barber -> 3. Date (Calendar) -> 4. Time Slot (Chips) -> 5. Payment (Stripe Mock).",
+    "Barber cards must display photo, name, specialties, and a rating.",
+    "Ensure all interactive components have `data-testid` attributes (e.g., `data-testid=\"book-appointment-button\"`).",
+    "Use standard HTML+Tailwind for the landing page hero and marketing sections, and Shadcn UI components for the booking forms and dashboards (customized to match the gold/black theme)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients.",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling. Use 2-3x more spacing than feels comfortable.",
+    "Create depth through layered design elements with z-index hierarchy and absolute positioning for background elements.",
+    "You MUST NOT apply universal transition. Eg: `transition: all`. This results in breaking transforms. Always add transitions for specific interactive elements.",
+    "You MUST NOT center align the app container. Do not add `.App { text-align: center; }`.",
+    "NEVER use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons. Use lucide-react or phosphor icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects. Static = dead.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states separate good from extraordinary.",
+    "All interactive and key informational elements MUST include a `data-testid` attribute.",
+    "Use sonner for toasts, located in /app/frontend/src/components/ui/sonner.js."
+  ],
+  "testing": {
+    "attributes": "All interactive and key informational elements MUST include a `data-testid` attribute to facilitate robust automated testing. Example: `data-testid=\"service-select-button\"`"
+  }
+}
